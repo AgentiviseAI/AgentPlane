@@ -25,7 +25,7 @@ class PipelineService:
     async def get_by_id(self, pipeline_id: str) -> Optional[Pipeline]:
         """Get pipeline by ID (read-only operation)"""
         try:
-            logger.debug(f"Fetching pipeline by ID: {pipeline_id}")
+            logger.info(f"Fetching pipeline by ID: {pipeline_id}")
             
             result = await self.session.execute(
                 select(Pipeline).where(Pipeline.id == pipeline_id)
@@ -33,7 +33,7 @@ class PipelineService:
             pipeline = result.scalar_one_or_none()
             
             if pipeline:
-                logger.debug(f"Found pipeline: {pipeline.name}")
+                logger.info(f"Found pipeline: {pipeline}")
                 metrics.increment_counter("pipeline_service.get_by_id", 1, {"status": "found"})
             else:
                 logger.warning(f"Pipeline not found: {pipeline_id}")
@@ -51,7 +51,6 @@ class PipelineService:
         """Execute pipeline using PipelineProcessor"""
         try:
             logger.info("Executing pipeline")
-            logger.debug(f"Pipeline definition: {pipeline_definition}")
             
             # Validate pipeline definition
             if not pipeline_definition.get("nodes") or not pipeline_definition.get("edges"):
@@ -113,10 +112,14 @@ class PipelineService:
             }
             
             logger.info(f"Executing pipeline: {pipeline.name}")
-            final_state = await self.execute_pipeline(
-                pipeline_definition, 
-                initial_state
-            )
+            try:
+                final_state = await self.execute_pipeline(
+                    pipeline_definition, 
+                    initial_state
+                )
+            except Exception as e:
+                logger.error(f"Pipeline execution failed: {e}")
+                raise
             
             # 6. Store conversation
             conversation_data = {

@@ -35,7 +35,9 @@ class PipelineProcessor:
                 raise ValueError(f"Unknown node type: {node_type}")
             
             node_class = self.node_registry[node_type]
-            self.nodes[node_id] = node_class(node_id, config)
+            # Pass the full node definition as config so nodes can access 'link' and other root-level fields
+            full_config = {**config, **{k: v for k, v in node_def.items() if k not in ['type', 'id', 'config']}}
+            self.nodes[node_id] = node_class(node_id, full_config)
     
     def _get_next_nodes(self, current_node_id: str) -> List[str]:
         """Get the next nodes to execute based on edges"""

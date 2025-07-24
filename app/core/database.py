@@ -56,6 +56,11 @@ async def get_db():
             await session.close()
 
 
+async def get_db_session():
+    """Get database session context manager"""
+    return SessionLocal()
+
+
 async def close_db():
     """Close database connections"""
     await engine.dispose()

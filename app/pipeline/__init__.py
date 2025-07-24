@@ -1,13 +1,12 @@
-from app.pipeline.nodes import InputProcessorNode, LLMCallNode, ResponseFormatterNode
+from app.pipeline.nodes import StartNode, LLMCallNode, EndNode
 
 # Node registry for pipeline processor
 NODE_REGISTRY = {
-    "InputProcessorNode": InputProcessorNode,
+    "StartNode": StartNode,
     "LLMCallNode": LLMCallNode,
-    "ResponseFormatterNode": ResponseFormatterNode,
-    # Add aliases for existing pipeline node types
-    "start": InputProcessorNode,
+    "EndNode": EndNode,
+    # Aliases for pipeline node types
+    "start": StartNode,
     "llm": LLMCallNode,
-    "end": ResponseFormatterNode,
-    "prompt_rewriter": InputProcessorNode,  # Map to input processor for now
+    "end": EndNode,
 }
