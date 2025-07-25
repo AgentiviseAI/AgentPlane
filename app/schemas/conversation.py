@@ -7,9 +7,9 @@ class ConversationCreate(BaseModel):
     userid: str
     chatid: str
     prompt: str
-    pipeline_state: Dict[str, Any]
+    workflow_state: Dict[str, Any]
     agent_id: str
-    pipeline_id: str
+    workflow_id: str
 
 
 class ConversationResponse(BaseModel):
@@ -17,9 +17,9 @@ class ConversationResponse(BaseModel):
     userid: str
     chatid: str
     prompt: str
-    pipeline_state: Dict[str, Any]
+    workflow_state: Dict[str, Any]
     agent_id: str
-    pipeline_id: str
+    workflow_id: str
     created_at: datetime
 
     class Config:

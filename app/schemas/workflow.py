@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
-class PipelineResponse(BaseModel):
+class WorkflowResponse(BaseModel):
     id: str
     name: str
     description: str
@@ -17,7 +17,7 @@ class PipelineResponse(BaseModel):
         from_attributes = True
 
 
-class PipelineCreate(BaseModel):
+class WorkflowCreate(BaseModel):
     name: str
     description: Optional[str] = None
     nodes: List[Dict[str, Any]]
@@ -25,7 +25,7 @@ class PipelineCreate(BaseModel):
     status: str = "active"
 
 
-class PipelineUpdate(BaseModel):
+class WorkflowUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     nodes: Optional[List[Dict[str, Any]]] = None

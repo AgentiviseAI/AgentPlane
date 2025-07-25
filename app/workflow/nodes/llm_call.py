@@ -3,10 +3,8 @@ LLM Call Node - Handles dynamic LLM calls based on hosting environment using Lan
 """
 from typing import Dict, Any
 import os
-from app.pipeline.base import PipelineNode
+from app.workflow.base import WorkflowNode
 from app.core.logging import logger
-from app.core.database import SessionLocal
-from app.repositories.llm_repository import LLMRepository
 
 # LangChain imports
 from langchain_aws import ChatBedrock
@@ -16,7 +14,7 @@ from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.messages import HumanMessage
 
 
-class LLMCallNode(PipelineNode):
+class LLMCallNode(WorkflowNode):
     """Node that calls an LLM based on node configuration"""
     
     def __init__(self, node_id: str, config: Dict[str, Any] = None):
@@ -26,7 +24,7 @@ class LLMCallNode(PipelineNode):
         logger.info(f"[DEV] LLMCallNode initialized - ID: {node_id}")
     
     async def _fetch_llm_entity(self):
-        """Fetch LLM entity from database based on node config"""        
+        """Fetch LLM entity from database using LLMService"""        
         if self.llm_initialized:
             return
             
@@ -38,10 +36,18 @@ class LLMCallNode(PipelineNode):
             logger.error(f"[DEV] LLMCallNode - No LLM ID found. Config: {self.config}")
             raise ValueError("LLM ID not found in node configuration. Expected 'link' or 'llm_id' field.")
         
-        # Get database session and fetch LLM
-        async with SessionLocal() as session:
-            llm_repo = LLMRepository(session)
-            self.llm_entity = await llm_repo.get_by_id(llm_id)
+        # Get LLM through service layer using late import to avoid circular dependencies
+        try:
+            import app.core.di_container as di_module
+            container = di_module.get_container()
+            llm_service = container.llm_service
+            self.llm_entity = await llm_service.get_by_id(llm_id)
+        except RuntimeError as e:
+            logger.error(f"[DEV] LLMCallNode - DI Container not initialized: {e}")
+            raise ValueError("Service container not available. Make sure the application is properly initialized.")
+        except ImportError as e:
+            logger.error(f"[DEV] LLMCallNode - Failed to import DI Container: {e}")
+            raise ValueError("Service container unavailable due to import issues.")
             
         if not self.llm_entity:
             raise ValueError(f"LLM with ID {llm_id} not found")
@@ -302,7 +308,8 @@ class LLMCallNode(PipelineNode):
             state["llm_metadata"] = {
                 "error": str(e),
                 "llm_id": getattr(self.llm_entity, 'id', 'unknown'),
-                "hosting_environment": getattr(self.llm_entity, 'hosting_environment', 'unknown')
+                "hosting_environment": getattr(self.llm_entity, 'hosting_environment', 'unknown'),
+                "integration": "langchain"
             }
         
         return state

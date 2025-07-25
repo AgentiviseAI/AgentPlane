@@ -1,5 +1,5 @@
 """
-Pipeline Nodes - Import from individual node files
+Workflow Nodes - Import from individual node files
 This file maintains backward compatibility while nodes are now organized in separate files.
 """
 from .nodes.start_node import StartNode

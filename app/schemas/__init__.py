@@ -1,6 +1,6 @@
 from .request import ProcessPromptRequest, ProcessPromptResponse
 from .agent import AIAgentResponse, AIAgentCreate, AIAgentUpdate
-from .pipeline import PipelineResponse, PipelineCreate, PipelineUpdate
+from .workflow import WorkflowResponse, WorkflowCreate, WorkflowUpdate
 from .conversation import ConversationResponse, ConversationCreate
 
 __all__ = [
@@ -9,9 +9,9 @@ __all__ = [
     "AIAgentResponse",
     "AIAgentCreate", 
     "AIAgentUpdate",
-    "PipelineResponse",
-    "PipelineCreate",
-    "PipelineUpdate",
+    "WorkflowResponse",
+    "WorkflowCreate",
+    "WorkflowUpdate",
     "ConversationResponse",
     "ConversationCreate",
 ]

@@ -1,11 +1,11 @@
-from app.pipeline.nodes import StartNode, LLMCallNode, EndNode
+from app.workflow.nodes import StartNode, LLMCallNode, EndNode
 
-# Node registry for pipeline processor
+# Node registry for workflow processor
 NODE_REGISTRY = {
     "StartNode": StartNode,
     "LLMCallNode": LLMCallNode,
     "EndNode": EndNode,
-    # Aliases for pipeline node types
+    # Aliases for workflow node types
     "start": StartNode,
     "llm": LLMCallNode,
     "end": EndNode,

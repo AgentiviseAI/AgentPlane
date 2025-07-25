@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 
 
-class PipelineNode(ABC):
-    """Abstract base class for all pipeline nodes"""
+class WorkflowNode(ABC):
+    """Abstract base class for all workflow nodes"""
     
     def __init__(self, node_id: str, config: Dict[str, Any] = None):
         self.node_id = node_id
@@ -15,17 +15,17 @@ class PipelineNode(ABC):
         pass
 
 
-class PipelineProcessor:
-    """Processes a pipeline definition by executing nodes in order"""
+class WorkflowProcessor:
+    """Processes a workflow definition by executing nodes in order"""
     
-    def __init__(self, pipeline_definition: Dict[str, Any], node_registry: Dict[str, type]):
-        self.definition = pipeline_definition
+    def __init__(self, workflow_definition: Dict[str, Any], node_registry: Dict[str, type]):
+        self.definition = workflow_definition
         self.node_registry = node_registry
         self.nodes = {}
         self._build_nodes()
     
     def _build_nodes(self):
-        """Build node instances from pipeline definition"""
+        """Build node instances from workflow definition"""
         for node_def in self.definition.get("nodes", []):
             node_type = node_def["type"]
             node_id = node_def["id"]
@@ -52,7 +52,7 @@ class PipelineProcessor:
         return next_nodes
     
     async def execute(self, initial_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the pipeline starting from start_node"""
+        """Execute the workflow starting from start_node"""
         # Auto-detect start and end nodes if not specified
         if "start_node" in self.definition:
             start_node = self.definition["start_node"]

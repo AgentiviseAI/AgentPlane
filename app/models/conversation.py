@@ -13,11 +13,11 @@ class Conversation(Base):
     userid = Column(String(255), nullable=False)
     chatid = Column(String(36), nullable=False, index=True)
     prompt = Column(Text, nullable=False)
-    pipeline_state = Column(JSON, nullable=False)
+    workflow_state = Column(JSON, nullable=False)
     agent_id = Column(String(36), ForeignKey("ai_agents.id"), nullable=False)
-    pipeline_id = Column(String(36), ForeignKey("pipelines.id"), nullable=False)
+    workflow_id = Column(String(36), ForeignKey("workflows.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
 
     # Relationships
     agent = relationship("AIAgent", back_populates="conversations")
-    pipeline = relationship("Pipeline", back_populates="conversations")
+    workflow = relationship("Workflow", back_populates="conversations")

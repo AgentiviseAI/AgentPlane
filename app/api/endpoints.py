@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import get_db, logger, metrics
+from app.core.di_container import get_container, init_container
 from app.schemas import ProcessPromptRequest, ProcessPromptResponse
-from app.services import PipelineService
+from app.services import WorkflowService
 from app.services.cache_service import InMemoryCacheService
 
 router = APIRouter()
@@ -11,22 +12,28 @@ router = APIRouter()
 cache_service = InMemoryCacheService()
 
 
-async def get_pipeline_service(db: AsyncSession = Depends(get_db)) -> PipelineService:
-    """Dependency to get pipeline service"""
-    return PipelineService(db, cache_service)
+async def get_workflow_service(db: AsyncSession = Depends(get_db)) -> WorkflowService:
+    """Dependency to get workflow service"""
+    # Initialize DI container if not already done
+    try:
+        container = get_container()
+    except RuntimeError:
+        container = init_container(db, cache_service)
+    
+    return container.workflow_service
 
 
 @router.post("/process_prompt", response_model=ProcessPromptResponse)
 async def process_prompt(
     request: ProcessPromptRequest,
-    pipeline_service: PipelineService = Depends(get_pipeline_service)
+    workflow_service: WorkflowService = Depends(get_workflow_service)
 ):
-    """Process a user prompt through the agent pipeline"""
+    """Process a user prompt through the agent workflow"""
     try:
         logger.info(f"Processing prompt request for agent: {request.agentid}")
         metrics.increment_counter("api.process_prompt.requests", 1)
         
-        response = await pipeline_service.process_prompt(request)
+        response = await workflow_service.process_prompt(request)
         
         metrics.increment_counter("api.process_prompt.success", 1)
         logger.info(f"Prompt processed successfully for agent: {request.agentid}")

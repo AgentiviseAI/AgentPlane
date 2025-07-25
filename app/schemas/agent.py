@@ -7,7 +7,7 @@ class AIAgentResponse(BaseModel):
     id: str
     name: str
     description: str
-    pipeline_id: str
+    workflow_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -18,10 +18,10 @@ class AIAgentResponse(BaseModel):
 class AIAgentCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    pipeline_id: str
+    workflow_id: str
 
 
 class AIAgentUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    pipeline_id: Optional[str] = None
+    workflow_id: Optional[str] = None
