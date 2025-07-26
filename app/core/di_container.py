@@ -8,14 +8,16 @@ from app.repositories import (
     AgentRepository,
     WorkflowRepository,
     ConversationRepository,
-    LLMRepository
+    LLMRepository,
+    MCPToolRepository
 )
 from app.services import (
     AgentService,
     WorkflowService,
     ConversationService,
     CacheService,
-    LLMService
+    LLMService,
+    MCPToolService
 )
 
 
@@ -31,10 +33,12 @@ class DIContainer:
         self._workflow_repository = WorkflowRepository(db_session)
         self._conversation_repository = ConversationRepository(db_session)
         self._llm_repository = LLMRepository(db_session)
+        self._mcp_tool_repository = MCPToolRepository(db_session)
         
         # Initialize services
         self._agent_service = AgentService(self._agent_repository)
         self._llm_service = LLMService(self._llm_repository)
+        self._mcp_tool_service = MCPToolService(self._mcp_tool_repository)
         self._conversation_service = ConversationService(self._conversation_repository)
         self._workflow_service = WorkflowService(
             self._workflow_repository,
@@ -60,6 +64,10 @@ class DIContainer:
         return self._llm_repository
     
     @property
+    def mcp_tool_repository(self) -> MCPToolRepository:
+        return self._mcp_tool_repository
+    
+    @property
     def agent_service(self) -> AgentService:
         return self._agent_service
     
@@ -74,6 +82,10 @@ class DIContainer:
     @property
     def llm_service(self) -> LLMService:
         return self._llm_service
+    
+    @property
+    def mcp_tool_service(self) -> MCPToolService:
+        return self._mcp_tool_service
 
 
 # Global container instance

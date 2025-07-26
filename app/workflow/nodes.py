@@ -5,7 +5,8 @@ This file maintains backward compatibility while nodes are now organized in sepa
 from .nodes.start_node import StartNode
 from .nodes.llm_call import LLMCallNode
 from .nodes.end_node import EndNode
+from .nodes.mcp_tool_node import MCPToolNode
 
-# Re-export for backward compatibility
-__all__ = ["StartNode", "LLMCallNode", "EndNode"]
+# Export all node classes for easy importing
+__all__ = ["StartNode", "LLMCallNode", "EndNode", "MCPToolNode"]
 
