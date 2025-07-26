@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core import init_db, close_db, logger, settings
+from app.core.startup import initialize_mcp_tools_at_startup
 from app.api.endpoints import router
 import os
 from contextlib import asynccontextmanager
@@ -14,6 +15,10 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         logger.info("✅ Database initialized successfully")
+        
+        # Initialize MCP tools and establish connections
+        await initialize_mcp_tools_at_startup()
+        
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
         # Don't exit in production, but log the error
