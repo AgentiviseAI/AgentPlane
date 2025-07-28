@@ -18,5 +18,6 @@ class MCPTool(Base):
     transport = Column(String(100), default="Streamable HTTP")
     required_permissions = Column(JSON)
     auth_headers = Column(JSON)
+    configuration = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

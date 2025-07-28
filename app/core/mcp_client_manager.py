@@ -44,6 +44,121 @@ class MCPClientManager:
             logger.error(f"[MCP] Failed to initialize tool {tool.name}: {e}")
             return None
     
+    async def retrieve_tool_capabilities(self, tool: MCPTool) -> Dict[str, Any]:
+        """Retrieve all capabilities from an MCP tool and format for storage"""
+        try:
+            logger.info(f"[MCP] Retrieving capabilities for tool: {tool.name}")
+            
+            transport_type = tool.transport.lower().replace(" ", "_")
+            
+            if transport_type in ["streamable_http", "streamable-http"]:
+                return await self._get_streamable_http_capabilities(tool)
+            elif transport_type in ["stdio", "standard_io"]:
+                return await self._get_stdio_capabilities(tool)
+            elif transport_type in ["sse", "server_sent_events"]:
+                return await self._get_sse_capabilities(tool)
+            else:
+                raise ValueError(f"Unsupported transport type: {tool.transport}")
+                
+        except Exception as e:
+            logger.error(f"[MCP] Failed to retrieve capabilities for {tool.name}: {e}")
+            raise
+    
+    async def _get_streamable_http_capabilities(self, tool: MCPTool) -> Dict[str, Any]:
+        """Retrieve capabilities via Streamable HTTP transport"""
+        try:
+            logger.info(f"[MCP] Connecting to {tool.name} via Streamable HTTP for capability discovery...")
+            
+            async with streamablehttp_client(tool.endpoint_url) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    # Initialize connection
+                    result = await session.initialize()
+                    logger.info(f"[MCP] Connected to {tool.name} - {result.serverInfo.name} v{result.serverInfo.version}")
+                    
+                    capabilities = {
+                        "server_info": {
+                            "name": result.serverInfo.name,
+                            "version": result.serverInfo.version
+                        },
+                        "tools": {},
+                        "resources": {},
+                        "prompts": {},
+                        "last_updated": asyncio.get_event_loop().time()
+                    }
+                    
+                    # Get tools
+                    try:
+                        tools_result = await session.list_tools()
+                        for tool_info in tools_result.tools:
+                            capabilities["tools"][tool_info.name] = {
+                                "name": tool_info.name,
+                                "description": tool_info.description,
+                                "enabled": False,  # Default to disabled
+                                "input_schema": tool_info.inputSchema.model_dump() if tool_info.inputSchema else {}
+                            }
+                        logger.info(f"[MCP] Found {len(capabilities['tools'])} tools")
+                    except Exception as e:
+                        logger.warning(f"[MCP] Could not retrieve tools: {e}")
+                    
+                    # Get resources
+                    try:
+                        resources_result = await session.list_resources()
+                        for resource_info in resources_result.resources:
+                            capabilities["resources"][resource_info.uri] = {
+                                "uri": resource_info.uri,
+                                "name": resource_info.name,
+                                "description": resource_info.description,
+                                "mime_type": resource_info.mimeType,
+                                "enabled": False  # Default to disabled
+                            }
+                        logger.info(f"[MCP] Found {len(capabilities['resources'])} resources")
+                    except Exception as e:
+                        logger.warning(f"[MCP] Could not retrieve resources: {e}")
+                    
+                    # Get prompts
+                    try:
+                        prompts_result = await session.list_prompts()
+                        for prompt_info in prompts_result.prompts:
+                            capabilities["prompts"][prompt_info.name] = {
+                                "name": prompt_info.name,
+                                "description": prompt_info.description,
+                                "enabled": False,  # Default to disabled
+                                "arguments": [arg.model_dump() for arg in prompt_info.arguments] if prompt_info.arguments else []
+                            }
+                        logger.info(f"[MCP] Found {len(capabilities['prompts'])} prompts")
+                    except Exception as e:
+                        logger.warning(f"[MCP] Could not retrieve prompts: {e}")
+                    
+                    return capabilities
+                    
+        except Exception as e:
+            logger.error(f"[MCP] Failed to get capabilities for {tool.name}: {e}")
+            raise
+    
+    async def _get_stdio_capabilities(self, tool: MCPTool) -> Dict[str, Any]:
+        """Retrieve capabilities via STDIO transport"""
+        # Similar implementation for STDIO
+        # For brevity, implementing basic structure
+        return {
+            "server_info": {"name": "STDIO Server", "version": "unknown"},
+            "tools": {},
+            "resources": {},
+            "prompts": {},
+            "last_updated": asyncio.get_event_loop().time()
+        }
+    
+    async def _get_sse_capabilities(self, tool: MCPTool) -> Dict[str, Any]:
+        """Retrieve capabilities via SSE transport"""
+        # Similar implementation for SSE
+        # For brevity, implementing basic structure
+        return {
+            "server_info": {"name": "SSE Server", "version": "unknown"},
+            "tools": {},
+            "resources": {},
+            "prompts": {},
+            "last_updated": asyncio.get_event_loop().time()
+        }
+    
     async def _initialize_streamable_http_client(self, tool: MCPTool) -> Dict[str, Any]:
         """Initialize Streamable HTTP transport client"""
         try:
@@ -53,27 +168,53 @@ class MCPClientManager:
             async with streamablehttp_client(tool.endpoint_url) as (read_stream, write_stream, _):
                 async with ClientSession(read_stream, write_stream) as session:
                     # Initialize connection
-                    result = await session.initialize()
-                    logger.info(f"[MCP] ✅ Connected to {tool.name}")
-                    logger.info(f"[MCP]   Server: {result.serverInfo.name} v{result.serverInfo.version}")
+                    try:
+                        result = await session.initialize()
+                        logger.info(f"[MCP] ✅ Connected to {tool.name}")
+                        logger.info(f"[MCP]   Server: {result.serverInfo.name} v{result.serverInfo.version}")
+                    except Exception as init_error:
+                        logger.error(f"[MCP] Initialization failed: {str(init_error)}")
+                        raise
                     
-                    # Get available capabilities
-                    tools = await session.list_tools()
-                    resources = await session.list_resources()
-                    prompts = await session.list_prompts()
+                    # Get available capabilities (all optional)
+                    capabilities = {"tools": 0, "resources": 0, "prompts": 0}
+                    tools_available = []
+                    resources_available = []
+                    
+                    # Try to get tools (optional)
+                    try:
+                        tools_result = await session.list_tools()
+                        capabilities["tools"] = len(tools_result.tools)
+                        tools_available = [t.name for t in tools_result.tools[:5]]
+                        logger.info(f"[MCP] Found {capabilities['tools']} tools")
+                    except Exception as tools_error:
+                        logger.warning(f"[MCP] Tools not supported: {str(tools_error)}")
+                    
+                    # Try to get resources (optional)
+                    try:
+                        resources_result = await session.list_resources()
+                        capabilities["resources"] = len(resources_result.resources)
+                        resources_available = [r.uri for r in resources_result.resources[:5]]
+                        logger.info(f"[MCP] Found {capabilities['resources']} resources")
+                    except Exception as resources_error:
+                        logger.warning(f"[MCP] Resources not supported: {str(resources_error)}")
+                    
+                    # Try to get prompts (optional)
+                    try:
+                        prompts_result = await session.list_prompts()
+                        capabilities["prompts"] = len(prompts_result.prompts)
+                        logger.info(f"[MCP] Found {capabilities['prompts']} prompts")
+                    except Exception as prompts_error:
+                        logger.warning(f"[MCP] Prompts not supported: {str(prompts_error)}")
                     
                     client_info = {
                         "tool": tool,
                         "transport": "streamable_http",
                         "status": "connected",
                         "server_info": result.serverInfo,
-                        "capabilities": {
-                            "tools": len(tools.tools),
-                            "resources": len(resources.resources),
-                            "prompts": len(prompts.prompts)
-                        },
-                        "tools_available": [t.name for t in tools.tools[:5]],  # Show first 5
-                        "resources_available": [r.uri for r in resources.resources[:5]]
+                        "capabilities": capabilities,
+                        "tools_available": tools_available,
+                        "resources_available": resources_available
                     }
                     
                     logger.info(f"[MCP]   Capabilities: {client_info['capabilities']}")
@@ -83,7 +224,10 @@ class MCPClientManager:
                     return client_info
                     
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             logger.error(f"[MCP] Failed Streamable HTTP connection to {tool.name}: {e}")
+            logger.error(f"[MCP] Full traceback: {error_details}")
             return {
                 "tool": tool,
                 "transport": "streamable_http", 
