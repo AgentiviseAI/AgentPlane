@@ -1,23 +1,37 @@
+"""
+Main application entry point
+"""
+import os
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core import init_db, close_db, logger, settings
-from app.core.startup import initialize_mcp_tools_at_startup
-from app.api.endpoints import router
-import os
 from contextlib import asynccontextmanager
+
+# Set default environment for direct Python execution
+if not os.getenv("ENVIRONMENT"):
+    os.environ["ENVIRONMENT"] = "dev"
+
+from app.core import init_db, close_db, logger, settings
+# Temporarily comment out MCP startup for testing
+# from app.core.startup import initialize_mcp_tools_at_startup
+from app.api.endpoints import router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
-    logger.info("Starting Agent API Server...")
+    logger.info(f"Starting Agent API Server in {settings.environment.upper()} environment...")
+    logger.info(f"Database: {settings.database_url}")
+    logger.info(f"Log level: {settings.log_level}")
+    
     try:
         await init_db()
         logger.info("✅ Database initialized successfully")
         
         # Initialize MCP tools and establish connections
-        await initialize_mcp_tools_at_startup()
+        # Temporarily disabled for testing
+        # await initialize_mcp_tools_at_startup()
         
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
@@ -41,8 +55,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
-origins = os.getenv("CORS_ORIGINS", "http://localhost:3001,http://localhost:3000").split(",")
+# CORS middleware using settings
+origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -56,5 +70,11 @@ app.include_router(router)
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001, log_level=settings.log_level.lower())
+    logger.info(f"Starting server on 0.0.0.0:8001")
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8001,
+        reload=settings.debug,
+        log_level=settings.log_level.lower()
+    )

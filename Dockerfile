@@ -14,6 +14,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Essential environment variables for production deployment
+ENV ENVIRONMENT=prod
+ENV DATABASE_TYPE=sqlite
+ENV SECRET_KEY=changeme
+ENV JWT_SECRET_KEY=changeme
+ENV CORS_ORIGINS=http://localhost:3001,http://localhost:3000
+
 # Create a startup script
 RUN echo '#!/bin/bash\n\
 echo "Waiting for database..."\n\
