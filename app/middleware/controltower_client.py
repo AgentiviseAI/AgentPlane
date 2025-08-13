@@ -6,6 +6,7 @@ import aiohttp
 import logging
 from typing import Optional, List
 from app.core.config import settings
+from app.core.auth_context import get_current_user_id
 from app.schemas import AIAgentResponse, WorkflowResponse, LLMResponse, MCPToolResponse, SecurityRoleResponse
 
 logger = logging.getLogger(__name__)
@@ -18,14 +19,16 @@ class ControlTowerClient:
         self.base_url = base_url or settings.controltower_url
         self.session = None
     
-    def _get_headers(self, user_id: Optional[str] = None) -> dict:
+    def _get_headers(self) -> dict:
         """Get standard headers for ControlTower API requests"""
         headers = {
             "Content-Type": "application/json",
             "X-Service": "AgentPlane"  # Identify the calling service
         }
-        if user_id:
-            headers["X-User-ID"] = user_id
+        # Get user_id from auth context
+        effective_user_id = get_current_user_id()
+        if effective_user_id:
+            headers["X-User-ID"] = effective_user_id
         return headers
     
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -40,11 +43,11 @@ class ControlTowerClient:
             await self.session.close()
             self.session = None
     
-    async def get_agent(self, agent_id: str, user_id: Optional[str] = None) -> Optional[AIAgentResponse]:
+    async def get_agent(self, agent_id: str) -> Optional[AIAgentResponse]:
         """Get agent details from ControlTower"""
         try:
             session = await self._get_session()
-            headers = self._get_headers(user_id)
+            headers = self._get_headers()
             async with session.get(f"{self.base_url}/api/v1/agents/{agent_id}", headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -57,11 +60,11 @@ class ControlTowerClient:
             logger.error(f"Failed to get agent {agent_id}: {e}")
             raise
     
-    async def get_workflow(self, workflow_id: str, user_id: Optional[str] = None) -> Optional[WorkflowResponse]:
+    async def get_workflow(self, workflow_id: str) -> Optional[WorkflowResponse]:
         """Get workflow details from ControlTower"""
         try:
             session = await self._get_session()
-            headers = self._get_headers(user_id)
+            headers = self._get_headers()
             async with session.get(f"{self.base_url}/api/v1/workflows/{workflow_id}", headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -74,11 +77,11 @@ class ControlTowerClient:
             logger.error(f"Failed to get workflow {workflow_id}: {e}")
             raise
     
-    async def get_llm(self, llm_id: str, user_id: Optional[str] = None) -> Optional[LLMResponse]:
+    async def get_llm(self, llm_id: str) -> Optional[LLMResponse]:
         """Get LLM details from ControlTower"""
         try:
             session = await self._get_session()
-            headers = self._get_headers(user_id)
+            headers = self._get_headers()
             async with session.get(f"{self.base_url}/api/v1/llms/{llm_id}", headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -91,11 +94,11 @@ class ControlTowerClient:
             logger.error(f"Failed to get LLM {llm_id}: {e}")
             raise
     
-    async def get_mcp_tools(self, user_id: Optional[str] = None) -> List[MCPToolResponse]:
+    async def get_mcp_tools(self) -> List[MCPToolResponse]:
         """Get all MCP tools from ControlTower"""
         try:
             session = await self._get_session()
-            headers = self._get_headers(user_id)
+            headers = self._get_headers()
             async with session.get(f"{self.base_url}/api/v1/mcp-tools", headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -111,11 +114,11 @@ class ControlTowerClient:
             logger.error(f"Failed to get MCP tools: {e}")
             raise
     
-    async def get_mcp_tool(self, tool_id: str, user_id: Optional[str] = None) -> Optional[MCPToolResponse]:
+    async def get_mcp_tool(self, tool_id: str) -> Optional[MCPToolResponse]:
         """Get MCP tool details from ControlTower"""
         try:
             session = await self._get_session()
-            headers = self._get_headers(user_id)
+            headers = self._get_headers()
             async with session.get(f"{self.base_url}/api/v1/mcp-tools/{tool_id}", headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -128,11 +131,11 @@ class ControlTowerClient:
             logger.error(f"Failed to get MCP tool {tool_id}: {e}")
             raise
     
-    async def get_security_roles(self, user_id: Optional[str] = None) -> List[SecurityRoleResponse]:
+    async def get_security_roles(self) -> List[SecurityRoleResponse]:
         """Get all security roles from ControlTower"""
         try:
             session = await self._get_session()
-            headers = self._get_headers(user_id)
+            headers = self._get_headers()
             async with session.get(f"{self.base_url}/api/v1/security/roles", headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -148,11 +151,11 @@ class ControlTowerClient:
             logger.error(f"Failed to get security roles: {e}")
             raise
     
-    async def get_security_role(self, role_id: str, user_id: Optional[str] = None) -> Optional[SecurityRoleResponse]:
+    async def get_security_role(self, role_id: str) -> Optional[SecurityRoleResponse]:
         """Get security role details from ControlTower"""
         try:
             session = await self._get_session()
-            headers = self._get_headers(user_id)
+            headers = self._get_headers()
             async with session.get(f"{self.base_url}/api/v1/security/roles/{role_id}", headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()

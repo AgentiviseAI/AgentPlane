@@ -99,16 +99,16 @@ class WorkflowService:
         import uuid
         
         with TimingContext(metrics, "workflow_service.execute"):
-            logger.info(f"Executing agent workflow for agent: {request.agentid} (auth agent: {agent_id}), user: {user_id}, org: {organization_id}")
+            logger.info(f"Executing agent workflow for agent: {agent_id} (auth agent: {agent_id}), user: {user_id}, org: {organization_id}")
             
-            # 1. Fetch agent details
-            agent = await self.get_agent(request.agentid)
+            # 1. Fetch agent details (ControlTowerClient will automatically use auth context)
+            agent = await self.get_agent(str(agent_id))
             if not agent:
-                logger.error(f"Agent not found: {request.agentid}")
+                logger.error(f"Agent not found: {agent_id}")
                 metrics.increment_counter("workflow_service.execute", 1, {"status": "agent_not_found"})
-                raise ValueError(f"Agent not found: {request.agentid}")
+                raise ValueError(f"Agent not found: {agent_id}")
             
-            # 2. Fetch workflow definition
+            # 2. Fetch workflow definition (ControlTowerClient will automatically use auth context)
             workflow = await self.get_workflow(agent.get("workflow_id"))
             if not workflow:
                 logger.error(f"Workflow not found: {agent.get('workflow_id')}")

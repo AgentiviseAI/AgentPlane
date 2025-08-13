@@ -4,14 +4,19 @@ from app.models import Base
 import os
 from dotenv import load_dotenv
 from app.core.logging import logger
+from app.core.config import settings
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/ai_platform")
+# Use settings instead of hardcoded default
+DATABASE_URL = settings.database_url
 
-# Convert to async URL if needed
+# Convert to async URL if needed (only for PostgreSQL)
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+elif DATABASE_URL.startswith("sqlite:///"):
+    # For SQLite, use aiosqlite async driver
+    DATABASE_URL = DATABASE_URL.replace("sqlite:///", "sqlite+aiosqlite:///")
 
 engine = create_async_engine(DATABASE_URL, echo=False)  # Disable SQL echo in production
 SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -24,19 +29,26 @@ async def init_db():
     
     try:
         async with engine.begin() as conn:
-            # Check if conversations table exists
-            result = await conn.execute(text(
-                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations')"
-            ))
-            conversations_exists = result.scalar()
+            # Check if conversations table exists (database-agnostic approach)
+            if settings.database_type.lower() == "postgresql":
+                # PostgreSQL-specific query
+                result = await conn.execute(text(
+                    "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'conversations')"
+                ))
+                conversations_exists = result.scalar()
+            else:
+                # SQLite-specific query
+                result = await conn.execute(text(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'"
+                ))
+                conversations_exists = result.fetchone() is not None
             
             if not conversations_exists:
-                # Only create conversations table if it doesn't exist
-                from app.models import Conversation
-                await conn.run_sync(Conversation.__table__.create)
-                logger.info("[SUCCESS] Conversations table created")
+                # Create all tables using Base metadata
+                await conn.run_sync(Base.metadata.create_all)
+                logger.info("[SUCCESS] Database tables created")
             else:
-                logger.info("[SUCCESS] Conversations table already exists")
+                logger.info("[SUCCESS] Database tables already exist")
                 
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")

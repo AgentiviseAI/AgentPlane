@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Tuple
 from uuid import UUID
 from app.core import logger, metrics
+from app.core.auth_context import set_current_user_id
 from app.schemas import ExecuteRequest, ExecuteResponse
 from app.middleware import RequireAgentExecute
 from app.api.dependencies import get_workflow_service
@@ -18,6 +19,9 @@ async def execute(
 ):
     """Execute agent workflow with user prompt"""
     user_id, organization_id, agent_id = auth_context
+    
+    # Set the current user in the auth context for downstream services
+    set_current_user_id(user_id)
     
     try:
         logger.info(f"Executing agent workflow for agent: {agent_id}), user: {user_id}, org: {organization_id}")
