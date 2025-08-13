@@ -27,20 +27,20 @@ async def lifespan(app: FastAPI):
     
     try:
         await init_db()
-        logger.info("✅ Database initialized successfully")
+        logger.info("[SUCCESS] Database initialized successfully")
         
         # Initialize DI container with database session
         # Get a database session for DI container initialization
         async for db_session in get_db():
             init_container(db_session, cache_service)
-            logger.info("✅ DI Container initialized successfully")
+            logger.info("[SUCCESS] DI Container initialized successfully")
             break
         
         # Initialize MCP tools and establish connections
-        await initialize_mcp_tools_at_startup()
+        # await initialize_mcp_tools_at_startup()
         
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
+        logger.error(f"[ERROR] Database initialization failed: {e}")
         # Don't exit in production, but log the error
     
     yield
@@ -49,9 +49,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Agent API Server...")
     try:
         await close_db()
-        logger.info("✅ Database connections closed")
+        logger.info("[SUCCESS] Database connections closed")
     except Exception as e:
-        logger.error(f"❌ Database shutdown failed: {e}")
+        logger.error(f"[ERROR] Database shutdown failed: {e}")
 
 
 app = FastAPI(

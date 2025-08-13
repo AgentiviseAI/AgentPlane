@@ -34,9 +34,9 @@ async def init_db():
                 # Only create conversations table if it doesn't exist
                 from app.models import Conversation
                 await conn.run_sync(Conversation.__table__.create)
-                logger.info("✅ Conversations table created")
+                logger.info("[SUCCESS] Conversations table created")
             else:
-                logger.info("✅ Conversations table already exists")
+                logger.info("[SUCCESS] Conversations table already exists")
                 
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
