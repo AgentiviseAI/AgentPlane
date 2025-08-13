@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # Application settings
     environment: str = Field(default="dev", env="ENVIRONMENT")
     debug: bool = Field(default=False, env="DEBUG")
+
+    api_host: str = Field(default="0.0.0.0", env="API_HOST")
+    api_port: int = Field(default=8000, env="API_PORT")
+    api_reload: bool = Field(default=True, env="API_RELOAD")
     
     # Database settings
     database_type: str = Field(default="sqlite", env="DATABASE_TYPE")
@@ -56,6 +60,7 @@ class Settings(BaseSettings):
     api_title: str = Field(default="Agent API Server", env="API_TITLE")
     api_version: str = Field(default="1.0.0", env="API_VERSION")
     api_description: str = Field(default="API server for AI agent processing", env="API_DESCRIPTION")
+    api_v1_prefix: str = Field(default="/api/v1", env="API_V1_PREFIX")
     
     # Logging settings
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
@@ -66,7 +71,9 @@ class Settings(BaseSettings):
     # External services
     openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
     anthropic_api_key: str = Field(default="", env="ANTHROPIC_API_KEY")
-    
+    auth_service_url: str = Field(default="http://authservice:8000", env="AUTH_SERVICE_URL")
+    controltower_url: str = Field(default="http://controltower:8000", env="CONTROLTOWER_URL")
+
     model_config = {"env_file": ".env", "case_sensitive": False}
 
 

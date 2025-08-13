@@ -1,5 +1,5 @@
 """
-LLM Call Node - Handles dynamic LLM calls based on hosting environment using LangChain
+LLM Prompt Node - Handles dynamic LLM calls based on hosting environment using LangChain
 """
 from typing import Dict, Any
 import os
@@ -14,40 +14,38 @@ from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.messages import HumanMessage
 
 
-class LLMCallNode(WorkflowNode):
+class LLMPromptNode(WorkflowNode):
     """Node that calls an LLM based on node configuration"""
     
-    def __init__(self, node_id: str, config: Dict[str, Any] = None):
+    def __init__(self, node_id: str, config: Dict[str, Any] = None, llm_service=None):
         super().__init__(node_id, config)
+        self.llm_service = llm_service
         self.llm_entity = None
         self.llm_initialized = False
-        logger.info(f"[DEV] LLMCallNode initialized - ID: {node_id}")
+        logger.info(f"[DEV] LLMPromptNode initialized - ID: {node_id}")
     
     async def _fetch_llm_entity(self):
-        """Fetch LLM entity from database using LLMService"""        
+        """Fetch LLM entity from ControlTower using injected LLMService"""        
         if self.llm_initialized:
             return
             
+        if not self.llm_service:
+            raise ValueError("LLMService not provided. Make sure to inject LLMService in constructor.")
+            
         # Get LLM ID from config (now includes root-level fields like 'link')
         llm_id = self.config.get("link") or self.config.get("llm_id")
-        logger.info(f"[DEV] LLMCallNode - Extracted LLM ID: {llm_id}")
+        logger.info(f"[DEV] LLMPromptNode - Extracted LLM ID: {llm_id}")
         
         if not llm_id:
-            logger.error(f"[DEV] LLMCallNode - No LLM ID found. Config: {self.config}")
+            logger.error(f"[DEV] LLMPromptNode - No LLM ID found. Config: {self.config}")
             raise ValueError("LLM ID not found in node configuration. Expected 'link' or 'llm_id' field.")
         
-        # Get LLM through service layer using late import to avoid circular dependencies
+        # Get LLM through injected service
         try:
-            import app.core.di_container as di_module
-            container = di_module.get_container()
-            llm_service = container.llm_service
-            self.llm_entity = await llm_service.get_by_id(llm_id)
-        except RuntimeError as e:
-            logger.error(f"[DEV] LLMCallNode - DI Container not initialized: {e}")
-            raise ValueError("Service container not available. Make sure the application is properly initialized.")
-        except ImportError as e:
-            logger.error(f"[DEV] LLMCallNode - Failed to import DI Container: {e}")
-            raise ValueError("Service container unavailable due to import issues.")
+            self.llm_entity = await self.llm_service.get_by_id(llm_id)
+        except Exception as e:
+            logger.error(f"[DEV] LLMPromptNode - Failed to fetch LLM: {e}")
+            raise ValueError(f"Failed to fetch LLM: {e}")
             
         if not self.llm_entity:
             raise ValueError(f"LLM with ID {llm_id} not found")
@@ -55,7 +53,7 @@ class LLMCallNode(WorkflowNode):
         if not self.llm_entity.enabled:
             raise ValueError(f"LLM {self.llm_entity.name} is disabled")
             
-        logger.info(f"[DEV] LLMCallNode - Fetched LLM: {self.llm_entity.name} ({self.llm_entity.hosting_environment})")
+        logger.info(f"[DEV] LLMPromptNode - Fetched LLM: {self.llm_entity.name} ({self.llm_entity.hosting_environment})")
         self.llm_initialized = True
     
     async def _create_vertex_ai_llm(self):
@@ -99,17 +97,17 @@ class LLMCallNode(WorkflowNode):
         base_url = self.llm_entity.custom_api_endpoint_url
         if base_url.endswith('/api/generate'):
             base_url = base_url[:-len('/api/generate')]
-            logger.info(f"[DEV] LLMCallNode - Converted Ollama URL from {self.llm_entity.custom_api_endpoint_url} to {base_url}")
+            logger.info(f"[DEV] LLMPromptNode - Converted Ollama URL from {self.llm_entity.custom_api_endpoint_url} to {base_url}")
         elif base_url.endswith('/api/chat'):
             base_url = base_url[:-len('/api/chat')]
-            logger.info(f"[DEV] LLMCallNode - Converted Ollama URL from {self.llm_entity.custom_api_endpoint_url} to {base_url}")
+            logger.info(f"[DEV] LLMPromptNode - Converted Ollama URL from {self.llm_entity.custom_api_endpoint_url} to {base_url}")
         
         # Ensure model name matches what's available in Ollama
         model_name = self.llm_entity.model_name
         # Handle common model name variations
         if model_name == "gemma-2-2b-instruct":
             model_name = "gemma2:2b"
-            logger.info(f"[DEV] LLMCallNode - Converted model name from {self.llm_entity.model_name} to {model_name}")
+            logger.info(f"[DEV] LLMPromptNode - Converted model name from {self.llm_entity.model_name} to {model_name}")
         
         llm = ChatOllama(
             base_url=base_url,
@@ -215,12 +213,12 @@ class LLMCallNode(WorkflowNode):
 
     async def process(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Process the LLM call using the configured LLM entity with LangChain integrations."""
-        logger.info(f"[DEV] LLMCallNode.process() - Starting for node: {self.node_id}")
+        logger.info(f"[DEV] LLMPromptNode.process() - Starting for node: {self.node_id}")
         
         prompt = state.get("processed_prompt", state.get("prompt", ""))
         if not prompt:
             error_msg = "No prompt found in state"
-            logger.error(f"[DEV] LLMCallNode - {error_msg}")
+            logger.error(f"[DEV] LLMPromptNode - {error_msg}")
             state["llm_response"] = error_msg
             return state
         
@@ -229,39 +227,39 @@ class LLMCallNode(WorkflowNode):
             await self._fetch_llm_entity()
             
             hosting_env = self.llm_entity.hosting_environment.lower()
-            logger.info(f"[DEV] LLMCallNode - Using hosting environment: {hosting_env}")
+            logger.info(f"[DEV] LLMPromptNode - Using hosting environment: {hosting_env}")
             
             # Create LangChain LLM based on hosting environment
             llm = None
             if hosting_env in ["gcp_vertex_ai", "google_vertex_ai"]:
-                logger.info(f"[DEV] LLMCallNode - Creating Vertex AI LLM with project: {getattr(self.llm_entity, 'gcp_project_id', 'N/A')}, model: {self.llm_entity.model_name}")
+                logger.info(f"[DEV] LLMPromptNode - Creating Vertex AI LLM with project: {getattr(self.llm_entity, 'gcp_project_id', 'N/A')}, model: {self.llm_entity.model_name}")
                 llm = await self._create_vertex_ai_llm()
             elif hosting_env == "custom_deployment":
                 # Route based on custom_api_compatibility field
                 api_compatibility = getattr(self.llm_entity, 'custom_api_compatibility', '').lower()
-                logger.info(f"[DEV] LLMCallNode - Custom deployment with API compatibility: {api_compatibility}")
+                logger.info(f"[DEV] LLMPromptNode - Custom deployment with API compatibility: {api_compatibility}")
                 
                 if api_compatibility == "ollama_compatible":
-                    logger.info(f"[DEV] LLMCallNode - Creating Ollama LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
+                    logger.info(f"[DEV] LLMPromptNode - Creating Ollama LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
                     llm = await self._create_ollama_llm()
                 elif api_compatibility == "hf_tgi_compatible":
-                    logger.info(f"[DEV] LLMCallNode - Creating HuggingFace TGI LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
+                    logger.info(f"[DEV] LLMPromptNode - Creating HuggingFace TGI LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
                     llm = await self._create_huggingface_tgi_llm()
                 elif api_compatibility == "openai_compatible":
-                    logger.info(f"[DEV] LLMCallNode - Creating OpenAI-compatible LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
+                    logger.info(f"[DEV] LLMPromptNode - Creating OpenAI-compatible LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
                     llm = await self._create_openai_compatible_llm()
                 else:
                     # Default to Ollama-compatible for backward compatibility
-                    logger.info(f"[DEV] LLMCallNode - Unknown API compatibility '{api_compatibility}', defaulting to Ollama-compatible LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
+                    logger.info(f"[DEV] LLMPromptNode - Unknown API compatibility '{api_compatibility}', defaulting to Ollama-compatible LLM with endpoint: {self.llm_entity.custom_api_endpoint_url}, model: {self.llm_entity.model_name}")
                     llm = await self._create_ollama_llm()
             elif hosting_env == "azure_ai_foundry":
-                logger.info(f"[DEV] LLMCallNode - Creating Azure AI Foundry LLM with endpoint: {getattr(self.llm_entity, 'azure_endpoint_url', 'N/A')}, deployment: {getattr(self.llm_entity, 'azure_deployment_name', self.llm_entity.model_name)}")
+                logger.info(f"[DEV] LLMPromptNode - Creating Azure AI Foundry LLM with endpoint: {getattr(self.llm_entity, 'azure_endpoint_url', 'N/A')}, deployment: {getattr(self.llm_entity, 'azure_deployment_name', self.llm_entity.model_name)}")
                 llm = await self._create_azure_ai_foundry_llm()
             elif hosting_env == "aws_bedrock":
-                logger.info(f"[DEV] LLMCallNode - Creating AWS Bedrock LLM with region: {getattr(self.llm_entity, 'aws_region', 'N/A')}, model: {getattr(self.llm_entity, 'aws_model_id', self.llm_entity.model_name)}")
+                logger.info(f"[DEV] LLMPromptNode - Creating AWS Bedrock LLM with region: {getattr(self.llm_entity, 'aws_region', 'N/A')}, model: {getattr(self.llm_entity, 'aws_model_id', self.llm_entity.model_name)}")
                 llm = await self._create_bedrock_llm()
             elif hosting_env == "aws_sagemaker":
-                logger.info(f"[DEV] LLMCallNode - Creating HuggingFace TGI LLM with endpoint: {getattr(self.llm_entity, 'custom_api_endpoint_url', 'N/A')}, model: {self.llm_entity.model_name}")
+                logger.info(f"[DEV] LLMPromptNode - Creating HuggingFace TGI LLM with endpoint: {getattr(self.llm_entity, 'custom_api_endpoint_url', 'N/A')}, model: {self.llm_entity.model_name}")
                 llm = await self._create_huggingface_tgi_llm()
             else:
                 raise ValueError(f"Unsupported hosting environment: {hosting_env}")
@@ -269,14 +267,14 @@ class LLMCallNode(WorkflowNode):
             if not llm:
                 raise ValueError(f"Failed to create LLM for hosting environment: {hosting_env}")
             
-            logger.info(f"[DEV] LLMCallNode - Successfully created LLM instance for {hosting_env}")
+            logger.info(f"[DEV] LLMPromptNode - Successfully created LLM instance for {hosting_env}")
             
             # Create messages using LangChain format
             messages = [HumanMessage(content=prompt)]
             
             # Call the LLM using LangChain
-            logger.info(f"[DEV] LLMCallNode - Calling LLM with LangChain integration for {hosting_env}")
-            logger.info(f"[DEV] LLMCallNode - Prompt length: {len(prompt)} characters")
+            logger.info(f"[DEV] LLMPromptNode - Calling LLM with LangChain integration for {hosting_env}")
+            logger.info(f"[DEV] LLMPromptNode - Prompt length: {len(prompt)} characters")
             response = await llm.ainvoke(messages)
             
             # Extract content from LangChain response
@@ -285,8 +283,8 @@ class LLMCallNode(WorkflowNode):
             else:
                 response_text = str(response)
             
-            logger.info(f"[DEV] LLMCallNode - LLM call completed successfully")
-            logger.info(f"[DEV] LLMCallNode - Response length: {len(response_text)} chars")
+            logger.info(f"[DEV] LLMPromptNode - LLM call completed successfully")
+            logger.info(f"[DEV] LLMPromptNode - Response length: {len(response_text)} chars")
             
             # Store the response
             state["llm_response"] = response_text
@@ -300,7 +298,7 @@ class LLMCallNode(WorkflowNode):
             }
             
         except Exception as e:
-            logger.error(f"[DEV] LLMCallNode - Error: {str(e)}")
+            logger.error(f"[DEV] LLMPromptNode - Error: {str(e)}")
             
             # Fallback response in case of LLM failure
             error_response = f"I apologize, but I'm currently unable to process your request. Error: {str(e)}"

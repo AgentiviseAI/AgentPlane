@@ -1,6 +1,5 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime
 from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .base import Base
 import uuid
@@ -14,10 +13,7 @@ class Conversation(Base):
     chatid = Column(String(36), nullable=False, index=True)
     prompt = Column(Text, nullable=False)
     workflow_state = Column(JSON, nullable=False)
-    agent_id = Column(String(36), ForeignKey("ai_agents.id"), nullable=False)
-    workflow_id = Column(String(36), ForeignKey("workflows.id"), nullable=False)
+    # Store as strings without foreign key constraints since these reference ControlTower data
+    agent_id = Column(String(36), nullable=False, index=True)
+    workflow_id = Column(String(36), nullable=False, index=True)
     created_at = Column(DateTime, default=func.now())
-
-    # Relationships
-    agent = relationship("AIAgent", back_populates="conversations")
-    workflow = relationship("Workflow", back_populates="conversations")

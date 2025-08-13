@@ -15,19 +15,3 @@ class WorkflowResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class WorkflowCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    nodes: List[Dict[str, Any]]
-    edges: List[Dict[str, Any]]
-    status: str = "active"
-
-
-class WorkflowUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    nodes: Optional[List[Dict[str, Any]]] = None
-    edges: Optional[List[Dict[str, Any]]] = None
-    status: Optional[str] = None

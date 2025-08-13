@@ -17,16 +17,22 @@ class WorkflowNode(ABC):
 
 
 class WorkflowProcessor:
-    """Processes a workflow definition by executing nodes in order"""
+    """
+    Processes a workflow definition by executing nodes in order.
     
-    def __init__(self, workflow_definition: Dict[str, Any], node_registry: Dict[str, type]):
+    Supports dynamic dependency injection based on node registry configuration.
+    Node registry must use the format: {"node_type": {"class": NodeClass, "dependencies": ["service1", "service2"]}}
+    """
+    
+    def __init__(self, workflow_definition: Dict[str, Any], node_registry: Dict[str, Dict[str, Any]], services: Dict[str, Any] = None):
         self.definition = workflow_definition
         self.node_registry = node_registry
+        self.services = services or {}
         self.nodes = {}
         self._build_nodes()
     
     def _build_nodes(self):
-        """Build node instances from workflow definition"""
+        """Build node instances from workflow definition with dynamic dependency injection"""
         for node_def in self.definition.get("nodes", []):
             node_type = node_def["type"]
             node_id = node_def["id"]
@@ -35,10 +41,27 @@ class WorkflowProcessor:
             if node_type not in self.node_registry:
                 raise ValueError(f"Unknown node type: {node_type}")
             
-            node_class = self.node_registry[node_type]
+            # Get node registry entry - must be in new format with class and dependencies
+            registry_entry = self.node_registry[node_type]
+            if not isinstance(registry_entry, dict) or "class" not in registry_entry:
+                raise ValueError(f"Invalid registry entry for node type '{node_type}'. Expected format: {{'class': NodeClass, 'dependencies': [...]}}")
+            
+            node_class = registry_entry["class"]
+            required_dependencies = registry_entry.get("dependencies", [])
+            
             # Pass the full node definition as config so nodes can access 'link' and other root-level fields
             full_config = {**config, **{k: v for k, v in node_def.items() if k not in ['type', 'id', 'config']}}
-            self.nodes[node_id] = node_class(node_id, full_config)
+            
+            # Dynamically inject dependencies based on registry configuration
+            kwargs = {"node_id": node_id, "config": full_config}
+            for dependency in required_dependencies:
+                if dependency in self.services:
+                    # Convert service name to constructor parameter name (e.g., "llm_service" -> llm_service=...)
+                    kwargs[dependency] = self.services[dependency]
+                else:
+                    raise ValueError(f"Required service '{dependency}' not available for node type '{node_type}'")
+            
+            self.nodes[node_id] = node_class(**kwargs)
     
     def _get_next_nodes(self, current_node_id: str) -> List[str]:
         """Get the next nodes to execute based on edges"""

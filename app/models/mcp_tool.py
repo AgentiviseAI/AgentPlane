@@ -1,23 +1,35 @@
 """
-MCP Tool model for agent-api-server
+MCP Tool model for AgentPlane
 """
-from sqlalchemy import Column, String, Boolean, Text, JSON, DateTime
-from sqlalchemy.sql import func
-from app.models.base import Base
-import uuid
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+from datetime import datetime
 
 
-class MCPTool(Base):
-    __tablename__ = "mcp_tools"
-
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String(255), nullable=False)
-    description = Column(Text)
-    enabled = Column(Boolean, default=True)
-    endpoint_url = Column(String(500), nullable=False)
-    transport = Column(String(100), default="Streamable HTTP")
-    required_permissions = Column(JSON)
-    auth_headers = Column(JSON)
-    configuration = Column(JSON)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+class MCPTool(BaseModel):
+    """MCP Tool model for client manager compatibility"""
+    id: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    endpoint_url: str
+    transport: str = "streamable_http"
+    is_enabled: bool = True
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+    
+    @classmethod
+    def from_api_response(cls, data: Dict[str, Any]) -> 'MCPTool':
+        """Create MCPTool from API response data"""
+        return cls(
+            id=data.get('id'),
+            name=data.get('name', ''),
+            description=data.get('description'),
+            endpoint_url=data.get('endpoint_url', ''),
+            transport=data.get('transport', 'streamable_http'),
+            is_enabled=data.get('is_enabled', True),
+            created_at=data.get('created_at'),
+            updated_at=data.get('updated_at')
+        )

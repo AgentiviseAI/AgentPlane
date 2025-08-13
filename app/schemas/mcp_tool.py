@@ -1,13 +1,14 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 
-class AIAgentResponse(BaseModel):
+class MCPToolResponse(BaseModel):
     id: str
     name: str
-    description: str
-    workflow_id: str
+    description: Optional[str] = None
+    command: str
+    parameters: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
