@@ -86,11 +86,7 @@ class LLMPromptNode(WorkflowNode):
         config = self.llm_entity.additional_config or {}
         
         # Import the new ChatOllama from langchain-ollama
-        try:
-            from langchain_ollama import ChatOllama
-        except ImportError:
-            # Fallback to community version if langchain-ollama is not available
-            from langchain_community.chat_models import ChatOllama
+        from langchain_ollama import ChatOllama
         
         # Extract base URL from the endpoint URL
         # If the URL ends with /api/generate, remove it to get the base URL

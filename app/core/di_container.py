@@ -28,7 +28,7 @@ class DIContainer:
         self._conversation_service = ConversationService(self._conversation_repository)
         self._llm_service = LLMService(controltower_client)
         self._workflow_service = WorkflowService(
-            self._conversation_repository,
+            self._conversation_service,
             cache_service,
             controltower_client,
             self._llm_service

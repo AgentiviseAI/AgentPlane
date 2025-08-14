@@ -1,23 +1,36 @@
 from typing import Optional, Dict, Any
 from uuid import UUID
+import json
 from app.schemas import ExecuteRequest, ExecuteResponse
-from app.repositories import ConversationRepository
 from app.core.logging import logger
 from app.core.metrics import metrics, time_operation, TimingContext
 from app.workflow.base import WorkflowProcessor
 from app.workflow import NODE_REGISTRY
 from app.services.cache_service import CacheService
+from app.services.conversation_service import ConversationService
 from app.middleware.controltower_client import ControlTowerClient
 from app.services.llm_service import LLMService
+
+
+def serialize_workflow_state(obj):
+    """Convert UUID objects to strings for JSON serialization"""
+    if isinstance(obj, UUID):
+        return str(obj)
+    elif isinstance(obj, dict):
+        return {key: serialize_workflow_state(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_workflow_state(item) for item in obj]
+    else:
+        return obj
 
 
 class WorkflowService:
     """Service for managing workflows and processing prompts"""
     
-    def __init__(self, conversation_repository: ConversationRepository, 
+    def __init__(self, conversation_service: ConversationService, 
                  cache_service: CacheService, controltower_client: ControlTowerClient,
                  llm_service: LLMService):
-        self.conversation_repository = conversation_repository
+        self.conversation_service = conversation_service
         self.cache_service = cache_service
         self.controltower_client = controltower_client
         self.llm_service = llm_service
@@ -123,7 +136,7 @@ class WorkflowService:
                 "prompt": request.prompt,
                 "runid": runid,
                 "userid": str(user_id),  # Use user_id from auth context
-                "agentid": agent_id,
+                "agentid": str(agent_id),  # Convert UUID to string
                 "final_llm_response": "",
                 "created_at": str(uuid.uuid4())  # Placeholder timestamp
             }
@@ -147,19 +160,21 @@ class WorkflowService:
                 raise
             
             # 6. Store conversation
-            from app.models.conversation import Conversation
-            conversation = Conversation(
-                userid=str(user_id),  # Use user_id from auth context
-                chatid=runid,
-                prompt=request.prompt,
-                workflow_state=final_state,
-                agent_id=agent.id,
-                workflow_id=workflow.id
-            )
+            # Serialize workflow state to handle UUID objects
+            serialized_workflow_state = serialize_workflow_state(final_state)
             
-            # Save to database using repository
-            saved_conversation = await self.conversation_repository.create(conversation)
-            logger.info(f"Conversation saved: {saved_conversation.id}")
+            conversation_data = {
+                "userid": str(user_id),  # Use user_id from auth context
+                "chatid": runid,
+                "prompt": request.prompt,
+                "workflow_state": serialized_workflow_state,
+                "agent_id": agent.id,
+                "workflow_id": workflow.id
+            }
+            
+            # Save to database using conversation service
+            conversation_id = await self.conversation_service.save_conversation(conversation_data)
+            logger.info(f"Conversation saved: {conversation_id}")
             
             # 7. Update cache
             cache_key = f"conversation:{user_id}:{runid}"  # Use user_id from auth context
@@ -167,7 +182,7 @@ class WorkflowService:
             
             # 8. Return response
             response = ExecuteResponse(
-                agentid=request.agentid,
+                agentid=agent_id,
                 response=final_state.get("final_llm_response", ""),
                 runid=runid,
                 userid=str(user_id)  # Use user_id from auth context
