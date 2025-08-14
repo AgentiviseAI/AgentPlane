@@ -6,7 +6,7 @@ import aiohttp
 import logging
 from typing import Optional, List
 from app.core.config import settings
-from app.core.auth_context import get_current_user_id
+from app.core.auth_context import get_current_user_id, get_current_organization_id
 from app.schemas import AIAgentResponse, WorkflowResponse, LLMResponse, MCPToolResponse, SecurityRoleResponse
 
 logger = logging.getLogger(__name__)
@@ -20,15 +20,20 @@ class ControlTowerClient:
         self.session = None
     
     def _get_headers(self) -> dict:
-        """Get standard headers for ControlTower API requests"""
+        """Get standard headers for ControlTower API requests for service-to-service calls"""
         headers = {
             "Content-Type": "application/json",
             "X-Service": "AgentPlane"  # Identify the calling service
         }
-        # Get user_id from auth context
+        # Get user_id and organization_id from auth context
         effective_user_id = get_current_user_id()
         if effective_user_id:
             headers["X-User-ID"] = effective_user_id
+        
+        effective_organization_id = get_current_organization_id()
+        if effective_organization_id:
+            headers["X-Organization-ID"] = effective_organization_id
+            
         return headers
     
     async def _get_session(self) -> aiohttp.ClientSession:

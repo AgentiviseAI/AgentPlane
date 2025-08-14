@@ -12,11 +12,11 @@ class LLMService:
     def __init__(self, controltower_client: ControlTowerClient):
         self.controltower_client = controltower_client
     
-    async def get_by_id(self, llm_id: str, user_id: Optional[str] = None) -> Optional[LLMResponse]:
+    async def get_by_id(self, llm_id: str) -> Optional[LLMResponse]:
         """Get LLM by ID from ControlTower"""
-        return await self.controltower_client.get_llm(llm_id, user_id)
+        return await self.controltower_client.get_llm(llm_id)
     
-    async def list_llms(self, user_id: Optional[str] = None) -> List[LLMResponse]:
+    async def list_llms(self) -> List[LLMResponse]:
         """List available LLMs from ControlTower"""
         # This would be implemented when ControlTower exposes a list LLMs endpoint
         # For now, return empty list

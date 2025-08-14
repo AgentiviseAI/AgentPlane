@@ -109,11 +109,11 @@ class WorkflowService:
                 raise ValueError(f"Agent not found: {agent_id}")
             
             # 2. Fetch workflow definition (ControlTowerClient will automatically use auth context)
-            workflow = await self.get_workflow(agent.get("workflow_id"))
+            workflow = await self.get_workflow(agent.workflow_id)
             if not workflow:
-                logger.error(f"Workflow not found: {agent.get('workflow_id')}")
+                logger.error(f"Workflow not found: {agent.workflow_id}")
                 metrics.increment_counter("workflow_service.execute", 1, {"status": "workflow_not_found"})
-                raise ValueError(f"Workflow not found: {agent.get('workflow_id')}")
+                raise ValueError(f"Workflow not found: {agent.workflow_id}")
             
             # 3. Generate runid if not provided
             runid = request.runid if request.runid else str(uuid.uuid4())
@@ -123,7 +123,7 @@ class WorkflowService:
                 "prompt": request.prompt,
                 "runid": runid,
                 "userid": str(user_id),  # Use user_id from auth context
-                "agentid": request.agentid,
+                "agentid": agent_id,
                 "final_llm_response": "",
                 "created_at": str(uuid.uuid4())  # Placeholder timestamp
             }
@@ -132,11 +132,11 @@ class WorkflowService:
             
             # 5. Execute workflow
             workflow_definition = {
-                "nodes": workflow.get("nodes", []),
-                "edges": workflow.get("edges", [])
+                "nodes": workflow.nodes or [],
+                "edges": workflow.edges or []
             }
             
-            logger.info(f"Executing workflow: {workflow.get('name')}")
+            logger.info(f"Executing workflow: {workflow.name}")
             try:
                 final_state = await self.execute_workflow(
                     workflow_definition, 
@@ -153,8 +153,8 @@ class WorkflowService:
                 chatid=runid,
                 prompt=request.prompt,
                 workflow_state=final_state,
-                agent_id=agent.get("id"),
-                workflow_id=workflow.get("id")
+                agent_id=agent.id,
+                workflow_id=workflow.id
             )
             
             # Save to database using repository
