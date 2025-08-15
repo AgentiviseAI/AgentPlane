@@ -1,4 +1,4 @@
-from app.workflow.nodes import StartNode, LLMPromptNode, EndNode, MCPToolNode
+from app.workflow.nodes import StartNode, LLMPromptNode, EndNode, MCPToolNode, RestApiNode, IntentExtractorNode
 
 
 def register_node(node_type: str, node_class: type, dependencies: list = None):
@@ -27,6 +27,14 @@ NODE_REGISTRY = {
     "mcp_tool": {
         "class": MCPToolNode,
         "dependencies": []
+    },
+    "rest_api": {
+        "class": RestApiNode,
+        "dependencies": ["rest_api_service", "llm_service"]
+    },
+    "intent_extractor": {
+        "class": IntentExtractorNode,
+        "dependencies": ["llm_service"]
     },
     
     # Example of how to add more node types with dependencies:

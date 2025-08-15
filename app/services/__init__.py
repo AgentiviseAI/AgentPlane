@@ -4,6 +4,7 @@ from .cache_service import CacheService
 from .authorization_service import AuthorizationService
 from .mcp_service import MCPService
 from .llm_service import LLMService
+from .rest_api_service import RestAPIService
 
 __all__ = [
     "WorkflowService",
@@ -11,5 +12,6 @@ __all__ = [
     "CacheService",
     "AuthorizationService",
     "MCPService",
-    "LLMService"
+    "LLMService",
+    "RestAPIService"
 ]

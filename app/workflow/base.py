@@ -10,6 +10,14 @@ class WorkflowNode(ABC):
         self.node_id = node_id
         self.config = config or {}
     
+    def get_link(self) -> str:
+        """Get the primary entity link (e.g., REST API ID, LLM ID, etc.)"""
+        return self.config.get("link")
+    
+    def get_intel_link(self) -> str:
+        """Get the intelligence entity link (typically an LLM ID for AI-powered processing)"""
+        return self.config.get("intel_link")
+    
     @abstractmethod
     async def process(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Process the state and return updated state"""
@@ -198,7 +206,14 @@ class WorkflowProcessor:
     
     async def _execute_node_with_state(self, node: WorkflowNode, state: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a single node and return its result"""
-        return await node.process(state)
+        result = await node.process(state)
+        
+        # Check if the node failed by examining the success flag
+        if result.get("success") is False:
+            error_msg = result.get("error", "Node execution failed")
+            raise RuntimeError(f"Node {node.node_id} failed: {error_msg}")
+        
+        return result
     
     def get_execution_plan(self) -> Dict[str, Any]:
         """Get a visual representation of the workflow execution plan"""

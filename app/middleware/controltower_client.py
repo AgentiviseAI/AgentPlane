@@ -7,7 +7,7 @@ import logging
 from typing import Optional, List
 from app.core.config import settings
 from app.core.auth_context import get_current_user_id, get_current_organization_id
-from app.schemas import AIAgentResponse, WorkflowResponse, LLMResponse, MCPToolResponse, SecurityRoleResponse
+from app.schemas import AIAgentResponse, WorkflowResponse, LLMResponse, MCPToolResponse, SecurityRoleResponse, RestAPIResponse, RestAPIListResponse
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +171,50 @@ class ControlTowerClient:
                     response.raise_for_status()
         except Exception as e:
             logger.error(f"Failed to get security role {role_id}: {e}")
+            raise
+
+    async def get_rest_api(self, rest_api_id: str) -> Optional[RestAPIResponse]:
+        """Get REST API details from ControlTower"""
+        try:
+            session = await self._get_session()
+            headers = self._get_headers()
+            async with session.get(f"{self.base_url}/api/v1/rest-apis/{rest_api_id}", headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return RestAPIResponse(**data)
+                elif response.status == 404:
+                    return None
+                else:
+                    response.raise_for_status()
+        except Exception as e:
+            logger.error(f"Failed to get REST API {rest_api_id}: {e}")
+            raise
+
+    async def list_rest_apis(self, enabled_only: bool = True, organization_id: str = None) -> RestAPIListResponse:
+        """List REST APIs from ControlTower"""
+        try:
+            session = await self._get_session()
+            headers = self._get_headers()
+            
+            params = {}
+            if enabled_only:
+                params['enabled'] = 'true'
+            if organization_id:
+                params['organization_id'] = organization_id
+                
+            async with session.get(f"{self.base_url}/api/v1/rest-apis", headers=headers, params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    # Handle both direct list and wrapped response formats
+                    if isinstance(data, dict) and 'items' in data:
+                        return RestAPIListResponse(**data)
+                    else:
+                        # If it's a direct list, wrap it
+                        return RestAPIListResponse(items=[RestAPIResponse(**item) for item in data], total=len(data))
+                else:
+                    response.raise_for_status()
+        except Exception as e:
+            logger.error(f"Failed to list REST APIs: {e}")
             raise
 
 

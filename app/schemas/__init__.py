@@ -5,6 +5,7 @@ from .conversation import ConversationResponse, ConversationCreate
 from .llm import LLMResponse
 from .mcp_tool import MCPToolResponse
 from .security_role import SecurityRoleResponse
+from .rest_api import RestAPIResponse, RestAPIListResponse
 
 __all__ = [
     "ExecuteRequest",
@@ -15,5 +16,7 @@ __all__ = [
     "ConversationCreate",
     "LLMResponse",
     "MCPToolResponse",
-    "SecurityRoleResponse"
+    "SecurityRoleResponse",
+    "RestAPIResponse",
+    "RestAPIListResponse"
 ]

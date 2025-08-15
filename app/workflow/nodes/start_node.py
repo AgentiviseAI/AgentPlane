@@ -17,5 +17,6 @@ class StartNode(WorkflowNode):
         """Mark the start of workflow execution"""
         logger.info(f"[DEV] StartNode.process() - Workflow execution started for node: {self.node_id}")
         
-        # Just pass through the state without modification
+        # Set success flag and pass through the state
+        state["success"] = True
         return state

@@ -5,7 +5,7 @@ from functools import lru_cache
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories import ConversationRepository
-from app.services import WorkflowService, ConversationService, CacheService, LLMService
+from app.services import WorkflowService, ConversationService, CacheService, LLMService, RestAPIService
 from app.services.cache_service import InMemoryCacheService
 from app.middleware.controltower_client import controltower_client
 
@@ -27,11 +27,13 @@ class DIContainer:
         # Initialize services
         self._conversation_service = ConversationService(self._conversation_repository)
         self._llm_service = LLMService(controltower_client)
+        self._rest_api_service = RestAPIService(controltower_client)
         self._workflow_service = WorkflowService(
             self._conversation_service,
             cache_service,
             controltower_client,
-            self._llm_service
+            self._llm_service,
+            self._rest_api_service
         )
     
     @property

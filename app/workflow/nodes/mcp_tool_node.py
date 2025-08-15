@@ -88,7 +88,8 @@ class MCPToolNode(WorkflowNode):
             updated_context = {
                 **context,
                 "mcp_tool_result": tool_result,
-                "last_tool_output": tool_result["tool_output"]
+                "last_tool_output": tool_result["tool_output"],
+                "success": True  # Mark as successful
             }
             
             logger.info(f"[DEV] MCPToolNode - Tool execution completed successfully")
@@ -106,7 +107,9 @@ class MCPToolNode(WorkflowNode):
                     "tool_output": f"Error executing MCP tool {self.tool_id}: {str(e)}",
                     "tool_status": "error",
                     "error_details": str(e)
-                }
+                },
+                "success": False,  # Mark as failed
+                "error": str(e)
             }
             
             return error_context

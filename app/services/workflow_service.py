@@ -10,6 +10,7 @@ from app.services.cache_service import CacheService
 from app.services.conversation_service import ConversationService
 from app.middleware.controltower_client import ControlTowerClient
 from app.services.llm_service import LLMService
+from app.services.rest_api_service import RestAPIService
 
 
 def serialize_workflow_state(obj):
@@ -29,15 +30,17 @@ class WorkflowService:
     
     def __init__(self, conversation_service: ConversationService, 
                  cache_service: CacheService, controltower_client: ControlTowerClient,
-                 llm_service: LLMService):
+                 llm_service: LLMService, rest_api_service: RestAPIService):
         self.conversation_service = conversation_service
         self.cache_service = cache_service
         self.controltower_client = controltower_client
         self.llm_service = llm_service
+        self.rest_api_service = rest_api_service
         
         # Prepare services for dependency injection
         self.services = {
-            "llm_service": self.llm_service
+            "llm_service": self.llm_service,
+            "rest_api_service": self.rest_api_service
         }
     
     @time_operation("workflow_service.get_workflow")

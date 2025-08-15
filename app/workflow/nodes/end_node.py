@@ -37,11 +37,13 @@ class EndNode(WorkflowNode):
             state["final_llm_response"] = fallback_message  # This is what the API expects
             state["workflow_status"] = "failed"
             state["error_details"] = error_details
+            state["success"] = False  # Mark workflow as failed
         else:
             # Workflow succeeded
             state["final_response"] = llm_response
             state["final_llm_response"] = llm_response  # This is what the API expects
             state["workflow_status"] = "success"
+            state["success"] = True  # Mark workflow as successful
             logger.info(f"[DEV] EndNode - Workflow succeeded with response length: {len(llm_response)} chars")
         
         return state
