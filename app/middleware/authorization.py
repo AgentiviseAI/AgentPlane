@@ -21,6 +21,7 @@ async def get_current_user_id(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> UUID:
     """Validate JWT token or handle internal service calls and return user ID as UUID"""
+    
     # Handle internal service calls (from SchedulerService, IncomingWebhookService, etc.)
     if x_user_id and x_service:
         logger.info(f"Internal service call from {x_service} for user {x_user_id}")
@@ -41,7 +42,9 @@ async def get_current_user_id(
         )
     
     try:
-        user_data = await auth_client.validate_token(credentials.credentials)
+        # Validate the access token
+        access_token = credentials.credentials
+        user_data = await auth_client.validate_token(access_token)
         # Use 'id' field for user ID, fallback to 'sub' for JWT standard compatibility
         user_id_str = user_data.get("id") or user_data.get("sub")
         if not user_id_str:
@@ -143,6 +146,13 @@ class AuthorizationMiddleware:
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=f"Insufficient permissions to {action} {resource}"
                     )
+                
+                # Only set the access token in context after successful authorization
+                from app.core.auth_context import set_current_access_token
+                auth_header = request.headers.get('authorization')
+                if auth_header and auth_header.startswith('Bearer '):
+                    access_token = auth_header[7:]  # Remove "Bearer " prefix
+                    set_current_access_token(access_token)
                 
                 print(f"[AUTH] Authorization successful for user: {current_user_id}")
                 return current_user_id, organization_id, agent_id  # Return all as UUIDs

@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="", env="ANTHROPIC_API_KEY")
     auth_service_url: str = Field(default="http://authservice:8000", env="AUTH_SERVICE_URL")
     controltower_url: str = Field(default="http://controltower:8000", env="CONTROLTOWER_URL")
+    intentclassifier_url: str = Field(default="http://localhost:8003", env="INTENTCLASSIFIER_URL")
 
     model_config = {"env_file": ".env", "case_sensitive": False}
 

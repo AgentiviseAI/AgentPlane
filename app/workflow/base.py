@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Set
 import asyncio
+from app.core.logging import logger
 
 
 class WorkflowNode(ABC):
@@ -71,16 +72,28 @@ class WorkflowProcessor:
             
             self.nodes[node_id] = node_class(**kwargs)
     
-    def _get_next_nodes(self, current_node_id: str) -> List[str]:
-        """Get the next nodes to execute based on edges"""
+    def _get_next_nodes(self, current_node_id: str, output_handle: str = None) -> List[str]:
+        """Get the next nodes to execute based on edges, optionally filtered by output handle"""
         next_nodes = []
         for edge in self.definition.get("edges", []):
             # Handle both edge formats
             source = edge.get("source") or edge.get("source_component_id")
             target = edge.get("target") or edge.get("target_component_id")
+            source_handle = edge.get("sourceHandle")
             
             if source == current_node_id:
-                next_nodes.append(target)
+                # If output_handle is specified, only include edges that match
+                if output_handle is not None:
+                    # For conditional nodes, only follow edges with matching source handle
+                    if source_handle and source_handle == output_handle:
+                        next_nodes.append(target)
+                    elif not source_handle:
+                        # For backward compatibility, if no source handle is specified,
+                        # assume it's a default connection (not conditional)
+                        next_nodes.append(target)
+                else:
+                    # If no output_handle specified, include all edges (backward compatibility)
+                    next_nodes.append(target)
         return next_nodes
     
     def _get_previous_nodes(self, current_node_id: str) -> List[str]:
@@ -94,6 +107,21 @@ class WorkflowProcessor:
             if target == current_node_id:
                 previous_nodes.append(source)
         return previous_nodes
+    
+    def _get_conditional_routes(self, current_node_id: str) -> Dict[str, List[str]]:
+        """Get conditional routes for a node (organized by source handle)"""
+        routes = {}
+        for edge in self.definition.get("edges", []):
+            # Handle both edge formats
+            source = edge.get("source") or edge.get("source_component_id")
+            target = edge.get("target") or edge.get("target_component_id")
+            source_handle = edge.get("sourceHandle")
+            
+            if source == current_node_id and source_handle:
+                if source_handle not in routes:
+                    routes[source_handle] = []
+                routes[source_handle].append(target)
+        return routes
     
     def _all_dependencies_completed(self, node_id: str, completed_nodes: Set[str]) -> bool:
         """Check if all dependencies (previous nodes) of a node have been completed"""
@@ -188,7 +216,16 @@ class WorkflowProcessor:
                                 break
                             
                             # Find next nodes that are ready to execute
-                            next_nodes = self._get_next_nodes(completed_node_id)
+                            # Check if this is a conditional node that specified an output handle
+                            output_handle = node_result.get("next_output_handle")
+                            if output_handle:
+                                # Use conditional routing for IF-ELSE and SWITCH nodes
+                                next_nodes = self._get_next_nodes(completed_node_id, output_handle)
+                                logger.info(f"[DEV] WorkflowProcessor - Conditional routing from {completed_node_id} via '{output_handle}' handle to nodes: {next_nodes}")
+                            else:
+                                # Use normal routing for regular nodes
+                                next_nodes = self._get_next_nodes(completed_node_id)
+                            
                             for next_node in next_nodes:
                                 if (next_node not in completed_nodes and 
                                     next_node not in running_tasks and 
@@ -246,7 +283,8 @@ class WorkflowProcessor:
                 plan["nodes"][node_id] = {
                     "level": current_level,
                     "dependencies": self._get_previous_nodes(node_id),
-                    "next_nodes": self._get_next_nodes(node_id)
+                    "next_nodes": self._get_next_nodes(node_id),
+                    "conditional_routes": self._get_conditional_routes(node_id)
                 }
                 processed.add(node_id)
             

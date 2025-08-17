@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 from urllib.parse import urljoin, urlparse
 from app.workflow.base import WorkflowNode
 from app.core.logging import logger
+from app.core.auth_context import get_current_access_token
 
 
 class RestApiNode(WorkflowNode):
@@ -110,6 +111,47 @@ class RestApiNode(WorkflowNode):
                 
         return url
 
+    async def _handle_authentication(self) -> Dict[str, str]:
+        """Handle authentication based on the auth_method configured for the REST API"""
+        auth_headers = {}
+        
+        if not hasattr(self.rest_api_entity, 'auth_method') or not self.rest_api_entity.auth_method:
+            logger.info(f"[DEV] RestApiNode - No auth_method configured for REST API: {self.rest_api_entity.name}")
+            return auth_headers
+            
+        auth_method = self.rest_api_entity.auth_method
+        logger.info(f"[DEV] RestApiNode - Handling authentication method: {auth_method}")
+        
+        try:
+            if auth_method == "OBO":  # On-Behalf-Of - use current user's access token
+                access_token = get_current_access_token()
+                if access_token:
+                    auth_headers["Authorization"] = f"Bearer {access_token}"
+                    logger.info(f"[DEV] RestApiNode - Added OBO Bearer token to headers")
+                else:
+                    logger.warning(f"[DEV] RestApiNode - OBO auth method requested but no access token available")
+                    
+            elif auth_method == "AppKey":
+                # For AppKey, use the configured auth_headers (should contain API key)
+                logger.info(f"[DEV] RestApiNode - Using AppKey auth (will use configured auth_headers)")
+                
+            elif auth_method == "MSI":  # Managed Service Identity
+                # For MSI, you would typically get a token from the MSI endpoint
+                # This is a placeholder - implement MSI token acquisition as needed
+                logger.info(f"[DEV] RestApiNode - MSI auth method - implement MSI token acquisition")
+                
+            elif auth_method == "AppId+AppSecret":
+                # For AppId+AppSecret, use the configured auth_headers (should contain client credentials)
+                logger.info(f"[DEV] RestApiNode - Using AppId+AppSecret auth (will use configured auth_headers)")
+                
+            else:
+                logger.warning(f"[DEV] RestApiNode - Unknown auth_method: {auth_method}")
+                
+        except Exception as e:
+            logger.error(f"[DEV] RestApiNode - Error handling authentication: {e}")
+            
+        return auth_headers
+
     def _prepare_headers(self, additional_headers: Dict[str, str] = None) -> Dict[str, str]:
         """Prepare headers for the request"""
         headers = {}
@@ -175,41 +217,69 @@ class RestApiNode(WorkflowNode):
             raise ValueError("Intel_link LLM is required for intelligent request building but not configured")
         
         try:
+            # Create a lightweight version of state with only essential data for API requests
+            lightweight_state = {}
+            
+            # Include essential keys that are typically needed for API calls
+            essential_keys = [
+                'user_input', 'user_prompt', 'prompt', 'message', 'text', 'query', 'search', 'filter',
+                'id', 'user_id', 'session_id', 'request_id',
+                'extracted_intent', 'intent', 'entities', 'classification',
+                'name', 'email', 'phone', 'address', 'data',
+                'limit', 'page', 'size', 'sort', 'order',
+                'auth_token', 'api_key', 'headers'
+            ]
+            
+            # Extract essential data from state
+            for key in essential_keys:
+                if key in state:
+                    lightweight_state[key] = state[key]
+            
+            # Include any keys ending with '_id' (typically important for path params)
+            for key, value in state.items():
+                if key.endswith('_id') and key not in lightweight_state:
+                    lightweight_state[key] = value
+            
             # Create a prompt for the LLM to analyze the state and build request parameters
-            prompt = f"""
-You are helping to build an HTTP request for a REST API call. Here's the context:
-
-API Details:
-- Method: {self.rest_api_entity.method}
-- URL: {self.rest_api_entity.endpoint_url}
-- Description: {getattr(self.rest_api_entity, 'description', 'No description available')}
-
-Current Workflow State:
-{json.dumps(state, indent=2)}
+            system_prompt = """You are a JSON generation tool for an API request builder. Your sole purpose is to produce a valid JSON object based on the provided input.
 
 Instructions:
-1. Analyze the workflow state and extract relevant data for the API call
-2. Map the data to appropriate request components (path parameters, query parameters, headers, body)
-3. Return ONLY a valid JSON object with these keys: "path_params", "query_params", "headers", "body_data"
-4. Ensure all values are properly formatted for HTTP requests
-5. If a parameter is not needed, set it to null or empty object
+1. Extract relevant data for the API call from the input.
+2. Map the data to the correct request components: path parameters, query parameters, headers, and body data.
+3. Your output MUST be a single, valid JSON object.
+4. DO NOT include any text, explanations, or code examples outside of the JSON.
+5. If a component is not needed, its value should be null or an empty object.
 
-Example response format:
-{{
-    "path_params": {{"id": "123"}},
-    "query_params": {{"limit": 10, "filter": "active"}},
-    "headers": {{"Content-Type": "application/json"}},
-    "body_data": {{"name": "example", "value": "test"}}
-}}
-"""
+Output JSON Format:
+{
+ "path_params": {},
+ "query_params": {},
+ "headers": {
+ "Content-Type": "application/json"
+ },
+ "body_data": {
+ "name": "007"
+ }
+}"""
+
+            user_prompt = f"""Input Context:
+{json.dumps(lightweight_state, indent=2)}"""
 
             logger.info(f"[DEV] RestApiNode - Using LLM for intelligent request building (LLM: {self.llm_entity.name})")
-            logger.info(f"[DEV] RestApiNode - Prompt to LLM:\n{prompt}")
+            logger.info(f"[DEV] RestApiNode - System prompt:\n{system_prompt}")
+            logger.info(f"[DEV] RestApiNode - User prompt:\n{user_prompt}")
             
-            # Call the LLM service to generate intelligent parameters
+            # Get temperature from node's advanced configuration, fallback to 0.1
+            temperature = self.config.get('temperature', 0.7)
+            logger.info(f"[DEV] RestApiNode - Using temperature: {temperature}")
+            
+            # Call the LLM service to generate intelligent parameters with JSON format
             llm_response = await self.llm_service.invoke(
                 llm_entity=self.llm_entity,
-                prompt=prompt
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                format="json",  # Request JSON format output
+                temperature=temperature  # Temperature from node's advanced config
             )
             
             # Parse the LLM response as JSON
@@ -444,8 +514,16 @@ Example response format:
             # Build the complete URL
             url = self._build_url(path_params)
             
+            # Handle authentication and get auth headers
+            auth_headers = await self._handle_authentication()
+            
             # Prepare request components
             request_headers = self._prepare_headers(headers)
+            
+            # Add authentication headers (auth_method-based headers take precedence)
+            if auth_headers:
+                request_headers.update(auth_headers)
+                
             request_params = self._prepare_params(query_params)
             request_body = self._prepare_request_body(body_data)
             

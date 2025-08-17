@@ -4,6 +4,15 @@ REST API Schema - Response models for REST API entities
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from enum import Enum
+
+
+class AuthMethod(str, Enum):
+    """Authentication methods enumeration"""
+    OBO = "OBO"
+    APP_KEY = "AppKey"
+    MSI = "MSI"
+    APP_ID_SECRET = "AppId+AppSecret"
 
 
 class RestAPIResponse(BaseModel):
@@ -28,6 +37,7 @@ class RestAPIResponse(BaseModel):
     
     # Metadata
     tags: Optional[List[str]] = Field(default_factory=list, description="Tags for categorization")
+    auth_method: Optional[AuthMethod] = Field(None, description="Authentication method")
     organization_id: Optional[str] = Field(None, description="Organization ID")
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
